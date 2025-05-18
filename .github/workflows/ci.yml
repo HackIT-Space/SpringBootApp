@@ -2,11 +2,9 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   build:
@@ -21,7 +19,32 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: 'gradle'
+          cache: gradle
+
+      - name: Set up Docker Compose
+        uses: docker/compose-action@v2
+        with:
+          files: |
+            docker-compose.yml
+
+      - name: Start dependencies with Docker Compose
+        run: docker-compose up -d database redis
+
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in $(seq 1 10); do
+            docker-compose exec database pg_isready -U "${POSTGRES_USER:-postgres}" && break
+            echo "Waiting for postgres… ($i/10)"
+            sleep 5
+          done
 
       - name: Build, test and lint
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/${POSTGRES_DB:-hackit_db}
+          SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+          SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
         run: ./gradlew clean check --no-daemon
+
+      - name: Shutdown Docker Compose
+        if: always()
+        run: docker-compose down -v
