@@ -20,7 +20,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d hackit_db"
+          --health-cmd "pg_isready -U admin -d hackit_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -32,21 +32,50 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
+      
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
 
       - name: Wait for Postgres to be ready
         run: |
-          until pg_isready -h localhost -U postgres -d hackit_db; do
-            echo "Waiting for Postgres…"
+          echo "Waiting for PostgreSQL to be ready..."
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          until pg_isready -h localhost -p 5432; do
+            echo "PostgreSQL is unavailable - sleeping"
             sleep 1
           done
+          echo "PostgreSQL is up and running!"
+      
+      - name: Verify services
+        run: |
+          echo "PostgreSQL service configuration:"
+          echo "Host: localhost"
+          echo "Port: 5432"
+          echo "Database: hackit_db"
+          echo "User: admin"
+          echo "Password: admin"
+          
+          echo "Checking PostgreSQL connection..."
+          PGPASSWORD=admin psql -h localhost -U admin -d hackit_db -c "SELECT version();"
+          echo "Listing databases:"
+          PGPASSWORD=admin psql -h localhost -U admin -d hackit_db -c "SELECT datname FROM pg_database;"
+          
+          echo "Redis service configuration:"
+          echo "Host: localhost"
+          echo "Port: 6379"
+          echo "Checking Redis connection..."
+          sudo apt-get install -y redis-tools
+          redis-cli -h localhost -p 6379 ping
+          redis-cli -h localhost -p 6379 info server | head -5
       
       - name: Check code formatting
         run: ./gradlew spotlessCheck --no-daemon || echo "Code formatting check failed"
@@ -57,9 +86,11 @@ jobs:
 
       - name: Build, test and lint
         env:
-          SPRING_DATASOURCE_URL:    jdbc:postgresql://localhost:5432/hackit_db
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hackit_db
           SPRING_DATASOURCE_USERNAME: admin
           SPRING_DATASOURCE_PASSWORD: admin
+          SPRING_REDIS_HOST: localhost
+          SPRING_REDIS_PORT: 6379
         run: ./gradlew clean check --no-daemon
 
       - name: Run checkstyle with detailed report
@@ -72,7 +103,7 @@ jobs:
         
       - name: Upload checkstyle reports
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: checkstyle-reports
           path: |
@@ -81,7 +112,7 @@ jobs:
       
       - name: Upload spotless reports
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spotless-reports
           path: |
@@ -90,7 +121,7 @@ jobs:
       
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: |
