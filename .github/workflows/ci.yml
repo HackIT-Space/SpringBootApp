@@ -44,80 +44,14 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Wait for Postgres to be ready
-        run: |
-          echo "Waiting for PostgreSQL to be ready..."
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-          until pg_isready -h localhost -p 5432; do
-            echo "PostgreSQL is unavailable - sleeping"
-            sleep 1
-          done
-          echo "PostgreSQL is up and running!"
-      
-      - name: Verify services
-        run: |
-          echo "PostgreSQL service configuration:"
-          echo "Host: localhost"
-          echo "Port: 5432"
-          echo "Database: hackit_db"
-          echo "User: admin"
-          echo "Password: admin"
-          
-          echo "Checking PostgreSQL connection..."
-          PGPASSWORD=admin psql -h localhost -U admin -d hackit_db -c "SELECT version();"
-          echo "Listing databases:"
-          PGPASSWORD=admin psql -h localhost -U admin -d hackit_db -c "SELECT datname FROM pg_database;"
-          
-          echo "Redis service configuration:"
-          echo "Host: localhost"
-          echo "Port: 6379"
-          echo "Checking Redis connection..."
-          sudo apt-get install -y redis-tools
-          redis-cli -h localhost -p 6379 ping
-          redis-cli -h localhost -p 6379 info server | head -5
-      
-      - name: Check code formatting
-        run: ./gradlew spotlessCheck --no-daemon || echo "Code formatting check failed"
-      
-      - name: Generate formatting report
-        if: always()
-        run: ./gradlew spotlessCheck --no-daemon || true
-
-      - name: Build, test and lint
+      - name: Build and test
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hackit_db
           SPRING_DATASOURCE_USERNAME: admin
           SPRING_DATASOURCE_PASSWORD: admin
           SPRING_REDIS_HOST: localhost
           SPRING_REDIS_PORT: 6379
-        run: ./gradlew clean check --no-daemon
-
-      - name: Run checkstyle with detailed report
-        if: always()
-        run: ./gradlew checkstyleMain checkstyleTest --no-daemon
-
-      - name: Generate Spotless formatting report
-        if: always()
-        run: ./gradlew spotlessCheck --no-daemon || true
-        
-      - name: Upload checkstyle reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: checkstyle-reports
-          path: |
-            build/reports/checkstyle/
-          retention-days: 7
-      
-      - name: Upload spotless reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: spotless-reports
-          path: |
-            build/reports/spotless/
-          retention-days: 7
+        run: ./gradlew clean build --no-daemon
       
       - name: Upload test reports
         if: always()
