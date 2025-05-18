@@ -10,6 +10,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: hackit_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ${{ secrets.POSTGRES_USER }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -21,30 +41,20 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Set up Docker Compose
-        uses: docker/compose-action@v2
-        with:
-          files: |
-            docker-compose.yml
-
-      - name: Start dependencies with Docker Compose
-        run: docker-compose up -d database redis
-
       - name: Wait for Postgres to be ready
         run: |
-          for i in $(seq 1 10); do
-            docker-compose exec database pg_isready -U "${POSTGRES_USER:-postgres}" && break
-            echo "Waiting for postgres… ($i/10)"
-            sleep 5
+          until pg_isready -h localhost -U "${{ secrets.POSTGRES_USER }}" -d hackit_db; do
+            echo "Waiting for Postgres…"
+            sleep 1
           done
 
       - name: Build, test and lint
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/${POSTGRES_DB:-hackit_db}
-          SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
-          SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hackit_db
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.POSTGRES_USER }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: ./gradlew clean check --no-daemon
 
-      - name: Shutdown Docker Compose
+      - name: Tear down services
         if: always()
-        run: docker-compose down -v
+        run: echo "Services will be automatically torn down by Actions"
