@@ -8,12 +8,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.hackit.auth.dto.AuthenticationRequestDto;
 import org.hackit.auth.entity.User;
 import org.hackit.auth.repository.UserRepository;
+import org.hackit.config.TestRedisConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -25,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TestRedisConfiguration.class)
 class AuthenticationIntegrationTest {
 
     @Autowired private MockMvc mockMvc;

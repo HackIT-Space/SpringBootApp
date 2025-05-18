@@ -11,20 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: hackit_db
-          POSTGRES_USER: admin
-          POSTGRES_PASSWORD: admin
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U admin -d hackit_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
       redis:
         image: redis:7
         ports:
@@ -43,15 +29,22 @@ jobs:
       
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
+        
+      - name: Generate JWT keys for tests
+        run: |
+          mkdir -p src/main/resources/jwt
+          mkdir -p src/test/resources/jwt
+          openssl genrsa -out src/main/resources/jwt/app.key 2048
+          openssl rsa -in src/main/resources/jwt/app.key -pubout -out src/main/resources/jwt/app.pub
+          openssl genrsa -out src/test/resources/jwt/test.key 2048
+          openssl rsa -in src/test/resources/jwt/test.key -pubout -out src/test/resources/jwt/test.pub
+          ls -la src/main/resources/jwt/
+          ls -la src/test/resources/jwt/
 
       - name: Build and test
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hackit_db
-          SPRING_DATASOURCE_USERNAME: admin
-          SPRING_DATASOURCE_PASSWORD: admin
-          SPRING_REDIS_HOST: localhost
-          SPRING_REDIS_PORT: 6379
-        run: ./gradlew clean test -x spotlessCheck -x checkstyleMain -x checkstyleTest --no-daemon
+          SPRING_PROFILES_ACTIVE: test
+        run: ./gradlew clean test -x spotlessCheck -x checkstyleMain -x checkstyleTest --no-daemon --debug
       
       - name: Upload test reports
         if: always()

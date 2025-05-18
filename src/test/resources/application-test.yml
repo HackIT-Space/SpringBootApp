@@ -11,11 +11,17 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+  data:
+    redis:
+      enabled: false
+      repositories:
+        enabled: false
 
 jwt:
-  secret-key: G9Q8VvrA8BVlLErvWnJtk4TaAzjlzA0HF5XDFmPs0iafTG2woE
-  access-token-ttl: PT30M
-  refresh-token-ttl: P7D
+  private-key: classpath:jwt/test.key
+  public-key: classpath:jwt/test.pub
+  access-token-ttl: 5m
+  refresh-token-ttl: 1d
 
 logging:
   level:
