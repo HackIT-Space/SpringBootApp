@@ -14,13 +14,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: hackit_db
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ${{ secrets.POSTGRES_USER }}"
+          --health-cmd "pg_isready -U postgres -d hackit_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -43,18 +43,14 @@ jobs:
 
       - name: Wait for Postgres to be ready
         run: |
-          until pg_isready -h localhost -U "${{ secrets.POSTGRES_USER }}" -d hackit_db; do
+          until pg_isready -h localhost -U postgres -d hackit_db; do
             echo "Waiting for Postgres…"
             sleep 1
           done
 
       - name: Build, test and lint
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hackit_db
-          SPRING_DATASOURCE_USERNAME: ${{ secrets.POSTGRES_USER }}
-          SPRING_DATASOURCE_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SPRING_DATASOURCE_URL:    jdbc:postgresql://localhost:5432/hackit_db
+          SPRING_DATASOURCE_USERNAME: admin
+          SPRING_DATASOURCE_PASSWORD: admin
         run: ./gradlew clean check --no-daemon
-
-      - name: Tear down services
-        if: always()
-        run: echo "Services will be automatically torn down by Actions"
