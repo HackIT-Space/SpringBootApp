@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '3.4.5'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'checkstyle'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 group = 'org.hackit'
@@ -34,8 +35,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 
@@ -52,6 +55,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -61,4 +65,68 @@ tasks.named('test') {
 
 tasks.named('check') {
     dependsOn tasks.named('checkstyleMain'), tasks.named('checkstyleTest')
+}
+
+spotless {
+    java {
+        indentWithSpaces(2)
+        googleJavaFormat('1.17.0').aosp()
+        removeUnusedImports()
+        importOrder('java', 'javax', 'org', 'com', '')
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn 'spotlessCheck'
+}
+
+tasks.register('fixFormat') {
+    dependsOn 'spotlessApply'
+    description = 'Fix code formatting issues automatically'
+    group = 'Formatting'
+}
+
+tasks.register('spotlessReport') {
+    description = 'Generate HTML report for Spotless formatting check'
+    group = 'Verification'
+    
+    doLast {
+        def reportDir = file("${buildDir}/reports/spotless")
+        reportDir.mkdirs()
+        def reportFile = file("${reportDir}/spotless-report.html")
+        
+        def result = new ByteArrayOutputStream()
+        try {
+            exec {
+                commandLine './gradlew', 'spotlessCheck', '--quiet'
+                standardOutput = result
+                errorOutput = result
+                ignoreExitValue = true
+            }
+            reportFile.text = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Spotless Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    pre { background-color: #f5f5f5; padding: 10px; border-radius: 5px; }
+                    .success { color: green; }
+                    .failure { color: red; }
+                </style>
+            </head>
+            <body>
+                <h1>Spotless Formatting Report</h1>
+                <h2>Generated: ${new Date()}</h2>
+                <pre>${result.toString().replace("<", "&lt;").replace(">", "&gt;")}</pre>
+            </body>
+            </html>
+            """
+            println "Spotless report generated at: ${reportFile.absolutePath}"
+        } catch (Exception e) {
+            println "Failed to generate spotless report: ${e.message}"
+        }
+    }
 }

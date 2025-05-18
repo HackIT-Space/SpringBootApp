@@ -47,6 +47,13 @@ jobs:
             echo "Waiting for Postgres…"
             sleep 1
           done
+      
+      - name: Check code formatting
+        run: ./gradlew spotlessCheck --no-daemon || echo "Code formatting check failed"
+      
+      - name: Generate formatting report
+        if: always()
+        run: ./gradlew spotlessCheck --no-daemon || true
 
       - name: Build, test and lint
         env:
@@ -54,3 +61,38 @@ jobs:
           SPRING_DATASOURCE_USERNAME: admin
           SPRING_DATASOURCE_PASSWORD: admin
         run: ./gradlew clean check --no-daemon
+
+      - name: Run checkstyle with detailed report
+        if: always()
+        run: ./gradlew checkstyleMain checkstyleTest --no-daemon
+
+      - name: Generate Spotless formatting report
+        if: always()
+        run: ./gradlew spotlessCheck --no-daemon || true
+        
+      - name: Upload checkstyle reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: checkstyle-reports
+          path: |
+            build/reports/checkstyle/
+          retention-days: 7
+      
+      - name: Upload spotless reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: spotless-reports
+          path: |
+            build/reports/spotless/
+          retention-days: 7
+      
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/
+          retention-days: 7
